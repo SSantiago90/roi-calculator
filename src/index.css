@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: #f6f7fb;
+  color: #0f172a;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Ambient layered backdrop for the workspace */
+.app-backdrop {
+  background-color: #f6f7fb;
+  background-image:
+    radial-gradient(60rem 40rem at 100% -10%, rgba(37, 99, 235, 0.07), transparent 60%),
+    radial-gradient(50rem 34rem at -10% 10%, rgba(16, 185, 129, 0.06), transparent 55%),
+    linear-gradient(to bottom, rgba(15, 23, 42, 0.02), transparent 40%);
+}
+
+.grid-lines {
+  background-image:
+    linear-gradient(to right, rgba(15, 23, 42, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(15, 23, 42, 0.035) 1px, transparent 1px);
+  background-size: 34px 34px;
+}
+
+/* Range slider polish */
+input[type="range"] {
+  accent-color: #2563eb;
+}
+
+/* Reveal-on-mount micro animation */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rise-in {
+  animation: rise-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise-in {
+    animation: none;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* ── Print / PDF layout ─────────────────────────────── */
+@media print {
+  body {
+    background: #ffffff;
+  }
+  .app-backdrop {
+    background: #ffffff !important;
+  }
+  .screen-only {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  .print-page {
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+  }
+  @page {
+    margin: 16mm;
+  }
+}
+
+.print-only {
+  display: none;
+}

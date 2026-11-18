@@ -15,7 +15,6 @@ import type { Completeness, FinancialResult, ModelInputs } from "@/lib/types";
 import { money, number, payback, percent, percentValue } from "@/lib/format";
 import { buildWarnings } from "@/lib/warnings";
 import { Card } from "./ui";
-import { CostBreakdownChart, FirstYearChart, ProcessChart } from "./charts";
 
 export function ResultsDashboard({
   r,
@@ -131,30 +130,6 @@ export function ResultsDashboard({
         />
       </div>
 
-      {/* Charts */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="p-5">
-          <ChartTitle title="Proceso actual vs. automatizado" hint="Horas mensuales" />
-          <ProcessChart r={r} />
-          <TextEquiv>
-            Original: {number(r.monthlyManualHours, 0)} h · Restantes:{" "}
-            {number(r.remainingManualHours, 0)} h · Liberadas: {number(r.releasedHours, 0)} h
-          </TextEquiv>
-        </Card>
-        <Card className="p-5">
-          <ChartTitle title="Composición del costo mensual" hint="TCO operativo" />
-          <CostBreakdownChart r={r} inputs={inputs} />
-          <TextEquiv>TCO mensual total: {money(r.monthlyTCO)}</TextEquiv>
-        </Card>
-        <Card className="p-5 lg:col-span-2">
-          <ChartTitle title="Comparación financiera del primer año" hint="Valor potencial vs. costos" />
-          <FirstYearChart r={r} />
-          <TextEquiv>
-            Valor potencial anual: {money(r.firstYearPotentialValue)} · TCO 1er año:{" "}
-            {money(r.firstYearTCO)} · Valor neto: {money(r.firstYearPotentialNetValue)}
-          </TextEquiv>
-        </Card>
-      </div>
     </div>
   );
 }
@@ -233,15 +208,3 @@ function WarningRow({ w }: { w: ReturnType<typeof buildWarnings>[number] }) {
   );
 }
 
-function ChartTitle({ title, hint }: { title: string; hint: string }) {
-  return (
-    <div className="mb-3 flex items-baseline justify-between">
-      <h3 className="font-display text-sm font-semibold text-slate-800">{title}</h3>
-      <span className="text-[11px] text-slate-400">{hint}</span>
-    </div>
-  );
-}
-
-function TextEquiv({ children }: { children: React.ReactNode }) {
-  return <p className="mt-3 text-[11px] leading-relaxed text-slate-400">{children}</p>;
-}

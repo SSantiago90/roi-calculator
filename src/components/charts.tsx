@@ -11,18 +11,20 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { FinancialResult, ModelInputs } from "@/lib/types";
+import type { FinancialResult, ModelInputs, ScenarioConfig } from "@/lib/types";
+import { evaluateScenario } from "@/lib/calculations";
 import { money, number } from "@/lib/format";
 
 const BLUE = "#2563eb";
-const SLATE = "#cbd5e1";
+const SLATE = "var(--chart-muted)";
 const EMERALD = "#059669";
 const AMBER = "#d97706";
 const RED = "#dc2626";
 const INDIGO = "#4f46e5";
 
-const axisStyle = { fontSize: 11, fill: "#64748b" };
+const axisStyle = { fontSize: 11, fill: "var(--chart-label)" };
 const usd = (value: unknown) => money(Number(value));
+const tooltipStyle = { background: "var(--surface-raised)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--text)" };
 
 /* Current vs automated process — horizontal stacked bar */
 export function ProcessChart({ r }: { r: FinancialResult }) {
@@ -36,12 +38,13 @@ export function ProcessChart({ r }: { r: FinancialResult }) {
   return (
     <ResponsiveContainer width="100%" height={150}>
       <BarChart data={data} layout="vertical" margin={{ left: 4, right: 16 }}>
-        <CartesianGrid horizontal={false} stroke="#eef2f7" />
+        <CartesianGrid horizontal={false} stroke="var(--chart-grid)" />
         <XAxis type="number" tick={axisStyle} unit=" h" />
         <YAxis type="category" dataKey="name" tick={axisStyle} width={78} />
         <Tooltip
           formatter={(v) => `${number(Number(v), 1)} h`}
-          cursor={{ fill: "#f1f5f9" }}
+          cursor={{ fill: "var(--chart-cursor)" }}
+          contentStyle={tooltipStyle}
         />
         <Legend wrapperStyle={{ fontSize: 12 }} />
         <Bar dataKey="Restantes" stackId="a" fill={SLATE} barSize={34} />
@@ -85,13 +88,13 @@ export function CostBreakdownChart({
             innerRadius={40}
             outerRadius={70}
             paddingAngle={2}
-            stroke="#fff"
+            stroke="var(--surface-raised)"
           >
             {slices.map((s) => (
               <Cell key={s.name} fill={s.color} />
             ))}
           </Pie>
-          <Tooltip formatter={usd} />
+          <Tooltip formatter={usd} contentStyle={tooltipStyle} />
         </PieChart>
       </ResponsiveContainer>
       <ul className="flex-1 space-y-1.5 text-xs">
@@ -120,15 +123,40 @@ export function FirstYearChart({ r }: { r: FinancialResult }) {
   return (
     <ResponsiveContainer width="100%" height={200}>
       <BarChart data={data} margin={{ top: 8, right: 8, left: 4, bottom: 0 }}>
-        <CartesianGrid vertical={false} stroke="#eef2f7" />
+        <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
         <XAxis dataKey="name" tick={axisStyle} interval={0} />
         <YAxis tick={axisStyle} tickFormatter={(v) => `$${(Number(v) / 1000).toFixed(0)}k`} width={40} />
-        <Tooltip formatter={usd} cursor={{ fill: "#f1f5f9" }} />
+        <Tooltip formatter={usd} cursor={{ fill: "var(--chart-cursor)" }} contentStyle={tooltipStyle} />
         <Bar dataKey="v" radius={[4, 4, 0, 0]} barSize={44}>
           {data.map((d) => (
             <Cell key={d.name} fill={d.color} />
           ))}
         </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function ScenarioComparisonChart({ base, scenarios }: { base: ModelInputs; scenarios: ScenarioConfig[] }) {
+  const data = scenarios.map((scenario) => {
+    const result = evaluateScenario(base, scenario);
+    return {
+      name: scenario.label,
+      ROI: result.firstYearPotentialROI ?? 0,
+      Payback: result.potentialPaybackMonths ?? 0,
+    };
+  });
+  return (
+    <ResponsiveContainer width="100%" height={240}>
+      <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+        <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
+        <XAxis dataKey="name" tick={axisStyle} />
+        <YAxis yAxisId="roi" tick={axisStyle} tickFormatter={(value) => `${value}%`} width={46} />
+        <YAxis yAxisId="payback" orientation="right" tick={axisStyle} unit=" m" width={40} />
+        <Tooltip contentStyle={tooltipStyle} formatter={(value, name) => name === "ROI" ? `${number(Number(value), 1)} %` : `${number(Number(value), 1)} meses`} />
+        <Legend wrapperStyle={{ fontSize: 12 }} />
+        <Bar yAxisId="roi" dataKey="ROI" fill={BLUE} radius={[5, 5, 0, 0]} />
+        <Bar yAxisId="payback" dataKey="Payback" fill={EMERALD} radius={[5, 5, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   );

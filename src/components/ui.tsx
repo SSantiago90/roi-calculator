@@ -2,6 +2,7 @@ import { createContext, useContext, useState, type ReactNode } from "react";
 import { ChevronDown, HelpCircle, Lightbulb } from "lucide-react";
 import { cn } from "@/utils/cn";
 import { parseNumber } from "@/lib/format";
+import { SpotlightCard } from "./react-bits";
 
 /* Guided-learning mode context: controls inline educational hints. */
 export const GuidedContext = createContext(false);
@@ -18,14 +19,9 @@ export function Card({
   children: ReactNode;
 }) {
   return (
-    <div
-      className={cn(
-        "rounded-2xl border border-slate-200/80 bg-white shadow-sm shadow-slate-200/40",
-        className
-      )}
-    >
+    <SpotlightCard className={cn("surface-card", className)}>
       {children}
-    </div>
+    </SpotlightCard>
   );
 }
 
@@ -49,7 +45,7 @@ export function SectionHeader({
       )}
       {icon}
       <div>
-        <h2 className="font-display text-lg font-semibold tracking-tight text-slate-900">
+        <h2 className="text-balance font-display text-lg font-semibold tracking-tight text-slate-900">
           {title}
         </h2>
         {subtitle && <p className="mt-0.5 text-sm text-slate-500">{subtitle}</p>}

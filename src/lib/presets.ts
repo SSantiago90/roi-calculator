@@ -42,6 +42,10 @@ export const DEFAULT_FORM: NumericForm = {
   additionalOneTimeCosts: "0",
 };
 
+export const EMPTY_FORM: NumericForm = Object.fromEntries(
+  Object.keys(DEFAULT_FORM).map((key) => [key, ""])
+) as unknown as NumericForm;
+
 /** Fully worked teaching example described in the brief. */
 export const EXAMPLE_PROJECT: ProjectInfo = {
   clientName: "Inmobiliaria Delta",
@@ -95,6 +99,11 @@ export const DEFAULT_SCENARIOS: ScenarioConfig[] = [
     assumptions: { volumeFactor: 1.2, automationRate: 0.9, aiCostFactor: 0.9 },
   },
 ];
+
+export const EMPTY_SCENARIOS: ScenarioConfig[] = DEFAULT_SCENARIOS.map((scenario) => ({
+  ...scenario,
+  assumptions: { volumeFactor: 0, automationRate: 0, aiCostFactor: 0 },
+}));
 
 /** Convert string form into normalized numeric model inputs. */
 export function toModelInputs(f: NumericForm): ModelInputs {

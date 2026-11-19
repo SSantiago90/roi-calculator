@@ -61,13 +61,13 @@ export function InfoTip({ text }: { text: string }) {
       <button
         type="button"
         aria-label="Más información"
-        className="ml-1 inline-flex text-slate-400 transition-colors hover:text-blue-600 focus:text-blue-600 focus:outline-none"
+        className="ml-1 inline-flex text-slate-400 transition-colors hover:text-blue-600 focus-visible:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40"
       >
         <HelpCircle className="h-3.5 w-3.5" />
       </button>
       <span
         role="tooltip"
-        className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-1.5 w-56 -translate-x-1/2 translate-y-1 rounded-lg bg-slate-900 px-3 py-2 text-xs leading-relaxed text-slate-100 opacity-0 shadow-xl transition-all duration-150 group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:translate-y-0 group-focus-within:opacity-100"
+        className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-1.5 w-56 -translate-x-1/2 translate-y-1 rounded-lg bg-slate-900 px-3 py-2 text-xs leading-relaxed text-slate-100 opacity-0 shadow-xl transition-[opacity,transform] duration-150 group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:translate-y-0 group-focus-within:opacity-100"
       >
         {text}
       </span>
@@ -106,7 +106,7 @@ export function TextField({
   guided?: ReactNode;
 }) {
   const base =
-    "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 shadow-inner shadow-slate-100 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/25";
+    "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 shadow-inner shadow-slate-100 transition focus-visible:border-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/25";
   return (
     <label className="block">
       <span className="mb-1 flex items-center text-xs font-medium text-slate-600">
@@ -115,6 +115,8 @@ export function TextField({
       </span>
       {textarea ? (
         <textarea
+          name={label}
+          autoComplete="off"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
@@ -124,6 +126,8 @@ export function TextField({
       ) : (
         <input
           type="text"
+          name={label}
+          autoComplete="off"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
@@ -173,16 +177,18 @@ export function NumberField({
         <input
           type="text"
           inputMode="decimal"
+          name={label}
+          autoComplete="off"
           value={value}
           aria-invalid={invalid}
           onChange={(e) => onChange(e.target.value)}
           className={cn(
-            "w-full rounded-lg border bg-white py-2 text-sm font-mono tabular-nums text-slate-900 shadow-inner shadow-slate-100 transition focus:outline-none focus:ring-2",
+            "w-full rounded-lg border bg-white py-2 text-sm font-mono tabular-nums text-slate-900 shadow-inner shadow-slate-100 transition focus-visible:outline-none focus-visible:ring-2",
             unit ? "pl-11 pr-3" : "px-3",
             compact && "py-1.5",
             invalid
-              ? "border-red-400 focus:border-red-500 focus:ring-red-500/25"
-              : "border-slate-300 focus:border-blue-500 focus:ring-blue-500/25"
+              ? "border-red-400 focus-visible:border-red-500 focus-visible:ring-red-500/25"
+              : "border-slate-300 focus-visible:border-blue-500 focus-visible:ring-blue-500/25"
           )}
         />
       </span>
@@ -225,9 +231,11 @@ export function PercentSlider({
           <input
             type="text"
             inputMode="decimal"
+            name={label}
+            autoComplete="off"
             value={value}
             onChange={(e) => onChange(e.target.value.replace(/[^0-9.,]/g, ""))}
-            className="w-full rounded-md border border-slate-300 bg-white py-1 pr-6 pl-2 text-right font-mono text-sm tabular-nums focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/25"
+            className="w-full rounded-md border border-slate-300 bg-white py-1 pr-6 pl-2 text-right font-mono text-sm tabular-nums focus-visible:border-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/25"
           />
           <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400">
             %
@@ -236,6 +244,7 @@ export function PercentSlider({
       </div>
       <input
         type="range"
+        name={`${label}-slider`}
         min={0}
         max={100}
         step={1}
@@ -269,7 +278,7 @@ export function Expandable({
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:text-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40"
+        className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40"
       >
         {title}
         <ChevronDown

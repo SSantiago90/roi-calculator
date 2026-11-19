@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { computeModel, evaluateScenario, percentToFraction } from "./calculations";
 import type { ModelInputs, ScenarioConfig } from "./types";
+import { EXAMPLE_FORM, getCompleteness, toModelInputs } from "./presets";
 
 /** Base inputs replicating the "Inmobiliaria Delta" example. */
 function delta(): ModelInputs {
@@ -19,6 +20,11 @@ function delta(): ModelInputs {
     softwareLicenseCost: 0,
     otherRecurringCosts: 0,
     additionalOneTimeCosts: 0,
+    progressiveEnabled: false,
+    automationSchedule: Array.from({ length: 12 }, () => 0.8),
+    aiCostModel: "fixed",
+    variableAICostPerCase: 0,
+    aiProcessedRate: 1,
   };
 }
 
@@ -144,5 +150,52 @@ describe("helpers", () => {
     expect(r.effectiveAICost).toBe(480);
     // Support cost inherited from base (unchanged).
     expect(r.monthlySupportCost).toBe(240);
+  });
+
+  it("keeps a missing required value distinguishable from an explicit zero", () => {
+    const missing = { ...EXAMPLE_FORM, monthlyVolume: "" };
+    const zero = { ...EXAMPLE_FORM, monthlyVolume: "0" };
+    expect(toModelInputs(missing).monthlyVolume).toBe(0);
+    expect(toModelInputs(zero).monthlyVolume).toBe(0);
+    expect(getCompleteness(missing).volume).toBe(false);
+    expect(getCompleteness(zero).volume).toBe(true);
+  });
+});
+
+describe("deployment and AI cost models", () => {
+  it("uses each progressive automation rate for first-year value", () => {
+    const schedule = [0, 0.2, 0.4, 0.5, 0.65, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8];
+    const result = computeModel({ ...delta(), progressiveEnabled: true, automationSchedule: schedule });
+    expect(result.deploymentMode).toBe("progressive");
+    expect(result.firstYearPotentialValue).toBeCloseTo(3600 * schedule.reduce((sum, rate) => sum + rate, 0), 2);
+    expect(result.firstYearPotentialValue).toBeLessThan(computeModel(delta()).firstYearPotentialValue);
+  });
+
+  it("keeps fixed mode backward-compatible", () => {
+    const result = computeModel(delta());
+    expect(result.monthlyAIExpense).toBe(400);
+    expect(result.averageFirstYearAutomationRate).toBe(0.8);
+    expect(result.monthlyProjection).toHaveLength(12);
+  });
+
+  it("charges variable AI cost for all AI-processed cases", () => {
+    const result = computeModel({ ...delta(), aiCostModel: "variable", monthlyAICost: 100, variableAICostPerCase: 0.25, aiProcessedRate: 1 });
+    expect(result.monthlyAIProcessedCases).toBe(1200);
+    expect(result.monthlyAIExpense).toBe(400);
+    expect(result.monthlyTCO).toBe(740);
+  });
+
+  it("tracks potential and realized cumulative recovery separately", () => {
+    const result = computeModel({ ...delta(), captureRate: 0.5 });
+    expect(result.monthlyProjection[0].cumulativePotentialBalance).toBe(-860);
+    expect(result.monthlyProjection[0].cumulativeRealizedBalance).toBe(-2300);
+    expect(result.potentialPaybackMonths).toBeLessThan(result.realizedPaybackMonths!);
+  });
+
+  it("returns no payback when monthly net value never becomes positive", () => {
+    const result = computeModel({ ...delta(), monthlyAICost: 5000, captureRate: 1 });
+    expect(result.potentialPaybackMonths).toBeNull();
+    expect(result.realizedPaybackMonths).toBeNull();
+    expect(result.monthlyProjection[11].cumulativePotentialBalance).toBeLessThan(0);
   });
 });

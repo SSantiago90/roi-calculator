@@ -49,6 +49,14 @@ export interface NumericForm {
   additionalOneTimeCosts: string;
 }
 
+export interface SimulationConfig {
+  progressiveEnabled: boolean;
+  automationSchedule: string[];
+  aiCostModel: "fixed" | "variable";
+  variableAICostPerCase: string;
+  aiProcessedRate: string;
+}
+
 /** Fully parsed, numeric projection of the form (missing => 0). */
 export interface ModelInputs {
   monthlyVolume: number;
@@ -65,6 +73,25 @@ export interface ModelInputs {
   softwareLicenseCost: number;
   otherRecurringCosts: number;
   additionalOneTimeCosts: number;
+  progressiveEnabled: boolean;
+  automationSchedule: number[];
+  aiCostModel: "fixed" | "variable";
+  variableAICostPerCase: number;
+  aiProcessedRate: number;
+}
+
+export interface MonthlyProjection {
+  month: number;
+  automationRate: number;
+  aiProcessedCases: number;
+  aiExpense: number;
+  monthlyTCO: number;
+  potentialValue: number;
+  realizedValue: number;
+  potentialNet: number;
+  realizedNet: number;
+  cumulativePotentialBalance: number;
+  cumulativeRealizedBalance: number;
 }
 
 /** Which core fields still need valid input. */
@@ -87,6 +114,8 @@ export interface FinancialResult {
   releasedCapacityValue: number;
   // Costs
   monthlySupportCost: number;
+  monthlyAIProcessedCases: number;
+  monthlyAIExpense: number;
   otherRecurringCosts: number;
   monthlyTCO: number;
   totalInitialInvestment: number;
@@ -99,6 +128,7 @@ export interface FinancialResult {
   firstYearPotentialROI: number | null;
   monthlyPotentialSurplus: number;
   potentialPaybackMonths: number | null;
+  realizedPaybackMonths: number | null;
   breakEvenRate: number | null; // fraction; >1 means unreachable
   breakEvenReachable: boolean;
   costPerAutomatedCase: number | null;
@@ -107,6 +137,9 @@ export interface FinancialResult {
   realizedMonthlyNetBenefit: number;
   realizedFirstYearROI: number | null;
   captureConfigured: boolean;
+  deploymentMode: "fixed" | "progressive";
+  averageFirstYearAutomationRate: number;
+  monthlyProjection: MonthlyProjection[];
 }
 
 export interface ScenarioAssumptions {
@@ -136,4 +169,5 @@ export interface PersistedState {
   commercial: CommercialContext;
   scenarios: ScenarioConfig[];
   guidedMode: boolean;
+  simulation: SimulationConfig;
 }

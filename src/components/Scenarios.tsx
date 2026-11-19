@@ -89,6 +89,7 @@ export function Scenarios({
             <Row label="Casos automatizados" cells={results.map(({ res }) => number(res.automatedCases, 0))} />
             <Row label="Horas liberadas" cells={results.map(({ res }) => `${number(res.releasedHours, 0)} h`)} />
             <Row label="Capacidad liberada" cells={results.map(({ res }) => money(res.releasedCapacityValue))} moneyTone />
+            <Row label="Costo IA mensual" cells={results.map(({ res }) => money(res.monthlyAIExpense))} />
             <Row label="TCO mensual" cells={results.map(({ res }) => money(res.monthlyTCO))} />
             <Row label="TCO 1er año" cells={results.map(({ res }) => money(res.firstYearTCO))} />
             <Row
@@ -117,6 +118,7 @@ export function Scenarios({
               <Line k="Volumen mensual" v={number(res.effectiveVolume, 0)} />
               <Line k="Horas liberadas" v={`${number(res.releasedHours, 0)} h`} />
               <Line k="Capacidad liberada" v={money(res.releasedCapacityValue)} />
+              <Line k="Costo IA mensual" v={money(res.monthlyAIExpense)} />
               <Line k="TCO mensual" v={money(res.monthlyTCO)} />
               <Line k="TCO 1er año" v={money(res.firstYearTCO)} />
               <Line k="ROI potencial 12 m" v={percentValue(res.firstYearPotentialROI)} />
@@ -149,11 +151,13 @@ function FactorInput({
       <span className="relative w-20">
         <input
           type="number"
+          name={`scenario-${label}`}
+          autoComplete="off"
           value={Math.round(value)}
           min={0}
           max={300}
           onChange={(e) => onChange(Number(e.target.value) || 0)}
-          className="w-full rounded-md border border-slate-300 bg-white py-1 pr-5 pl-2 text-right font-mono text-xs tabular-nums focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/25"
+          className="w-full rounded-md border border-slate-300 bg-white py-1 pr-5 pl-2 text-right font-mono text-xs tabular-nums focus-visible:border-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/25"
         />
         <span className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">%</span>
       </span>

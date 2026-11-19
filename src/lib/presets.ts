@@ -7,6 +7,7 @@ import type {
   NumericForm,
   ProjectInfo,
   ScenarioConfig,
+  SimulationConfig,
 } from "./types";
 
 export const DEFAULT_PROJECT: ProjectInfo = {
@@ -45,6 +46,22 @@ export const DEFAULT_FORM: NumericForm = {
 export const EMPTY_FORM: NumericForm = Object.fromEntries(
   Object.keys(DEFAULT_FORM).map((key) => [key, ""])
 ) as unknown as NumericForm;
+
+export const DEFAULT_SIMULATION: SimulationConfig = {
+  progressiveEnabled: false,
+  automationSchedule: ["0", "20", "40", "50", "65", "80", "80", "80", "80", "80", "80", "80"],
+  aiCostModel: "fixed",
+  variableAICostPerCase: "0",
+  aiProcessedRate: "100",
+};
+
+export const EMPTY_SIMULATION: SimulationConfig = {
+  progressiveEnabled: false,
+  automationSchedule: Array.from({ length: 12 }, () => ""),
+  aiCostModel: "fixed",
+  variableAICostPerCase: "",
+  aiProcessedRate: "",
+};
 
 /** Fully worked teaching example described in the brief. */
 export const EXAMPLE_PROJECT: ProjectInfo = {
@@ -106,7 +123,7 @@ export const EMPTY_SCENARIOS: ScenarioConfig[] = DEFAULT_SCENARIOS.map((scenario
 }));
 
 /** Convert string form into normalized numeric model inputs. */
-export function toModelInputs(f: NumericForm): ModelInputs {
+export function toModelInputs(f: NumericForm, simulation: SimulationConfig = DEFAULT_SIMULATION): ModelInputs {
   return {
     monthlyVolume: parseNumber(f.monthlyVolume) ?? 0,
     minutesPerCase: parseNumber(f.minutesPerCase) ?? 0,
@@ -122,6 +139,11 @@ export function toModelInputs(f: NumericForm): ModelInputs {
     softwareLicenseCost: parseNumber(f.softwareLicenseCost) ?? 0,
     otherRecurringCosts: parseNumber(f.otherRecurringCosts) ?? 0,
     additionalOneTimeCosts: parseNumber(f.additionalOneTimeCosts) ?? 0,
+    progressiveEnabled: simulation.progressiveEnabled,
+    automationSchedule: simulation.automationSchedule.map(percentToFraction),
+    aiCostModel: simulation.aiCostModel,
+    variableAICostPerCase: parseNumber(simulation.variableAICostPerCase) ?? 0,
+    aiProcessedRate: percentToFraction(simulation.aiProcessedRate),
   };
 }
 

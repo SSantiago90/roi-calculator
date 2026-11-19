@@ -47,6 +47,8 @@ export function Report({
           <Item k="% valor capturado" v={percent(inputs.captureRate)} />
           <Item k="Costo inicial (setup)" v={money(inputs.setupCost)} />
           <Item k="Costo mensual IA" v={money(inputs.monthlyAICost)} />
+          <Item k="Modelo de costo IA" v={inputs.aiCostModel === "fixed" ? "Fijo mensual" : "Fijo + variable por caso"} />
+          <Item k="Gasto IA calculado" v={money(r.monthlyAIExpense)} />
           <Item k="Infraestructura mensual" v={money(inputs.monthlyInfrastructureCost)} />
           <Item k="Soporte mensual" v={money(r.monthlySupportCost)} />
           <Item k="Otros recurrentes" v={money(r.otherRecurringCosts)} />
@@ -68,6 +70,8 @@ export function Report({
       {/* Automatización */}
       <Section title="Estimación de automatización">
         <Grid>
+          <Item k="Modo anual" v={r.deploymentMode === "progressive" ? "Implementación progresiva" : "Automatización fija"} />
+          <Item k="Automatización media 12 m" v={percent(r.averageFirstYearAutomationRate)} />
           <Item k="Casos automatizados" v={number(r.automatedCases, 0)} />
           <Item k="Horas liberadas / mes" v={`${number(r.releasedHours, 0)} h`} />
           <Item k="Horas manuales restantes" v={`${number(r.remainingManualHours, 0)} h`} />
@@ -91,6 +95,7 @@ export function Report({
           <Item k="ROI potencial 12 meses" v={percentValue(r.firstYearPotentialROI)} strong />
           <Item k="Valor neto potencial (1er año)" v={money(r.firstYearPotentialNetValue)} />
           <Item k="Recuperación estimada" v={payback(r.potentialPaybackMonths)} />
+          <Item k="Recuperación realizada" v={r.captureConfigured ? payback(r.realizedPaybackMonths) : "Sin captura configurada"} />
           <Item
             k="Punto de equilibrio operativo"
             v={r.breakEvenRate == null ? "—" : r.breakEvenReachable ? percent(r.breakEvenRate) : "> 100% (no alcanzable)"}
@@ -117,9 +122,12 @@ export function Report({
           </thead>
           <tbody>
             <TRow k="Capacidad liberada" cells={sResults.map(({ res }) => money(res.releasedCapacityValue))} />
+            <TRow k="Gasto IA mensual" cells={sResults.map(({ res }) => money(res.monthlyAIExpense))} />
+            <TRow k="TCO mensual" cells={sResults.map(({ res }) => money(res.monthlyTCO))} />
             <TRow k="TCO 1er año" cells={sResults.map(({ res }) => money(res.firstYearTCO))} />
             <TRow k="ROI potencial 12 m" cells={sResults.map(({ res }) => percentValue(res.firstYearPotentialROI))} />
             <TRow k="Recuperación" cells={sResults.map(({ res }) => payback(res.potentialPaybackMonths))} />
+            {r.captureConfigured && <TRow k="ROI realizado 12 m" cells={sResults.map(({ res }) => percentValue(res.realizedFirstYearROI))} />}
           </tbody>
         </table>
       </Section>

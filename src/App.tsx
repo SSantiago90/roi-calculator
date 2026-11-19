@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BarChart3, BookMarked, Calculator, ClipboardCopy, FileDown, GraduationCap, Moon, RotateCcw, Save, Sparkles, Sun, Upload } from "lucide-react";
 import { cn } from "@/utils/cn";
-import type { CommercialContext, NumericForm, PersistedState, ProjectInfo, ScenarioConfig } from "@/lib/types";
+import type { CommercialContext, NumericForm, PersistedState, ProjectInfo, ScenarioConfig, SimulationConfig } from "@/lib/types";
 import { computeModel } from "@/lib/calculations";
 import { money, number, payback, percentValue } from "@/lib/format";
-import { getCompleteness, toModelInputs, DEFAULT_PROJECT, EMPTY_FORM, EMPTY_SCENARIOS, EXAMPLE_COMMERCIAL, EXAMPLE_FORM, EXAMPLE_PROJECT } from "@/lib/presets";
+import { getCompleteness, toModelInputs, DEFAULT_PROJECT, EMPTY_FORM, EMPTY_SCENARIOS, EMPTY_SIMULATION, EXAMPLE_COMMERCIAL, EXAMPLE_FORM, EXAMPLE_PROJECT } from "@/lib/presets";
 import { clearState, defaultState, loadState, saveState } from "@/lib/storage";
 import { GuidedContext } from "@/components/ui";
 import { InputPanel } from "@/components/InputPanel";
@@ -52,8 +52,9 @@ export default function App() {
   const onProject = useCallback((key: keyof ProjectInfo, value: string) => setState((current) => ({ ...current, project: { ...current.project, [key]: value } })), []);
   const onField = useCallback((key: keyof NumericForm, value: string) => setState((current) => ({ ...current, form: { ...current.form, [key]: value } })), []);
   const onCommercial = useCallback((key: keyof CommercialContext, value: string) => setState((current) => ({ ...current, commercial: { ...current.commercial, [key]: value } })), []);
+  const onSimulation = useCallback((next: Partial<SimulationConfig>) => setState((current) => ({ ...current, simulation: { ...current.simulation, ...next } })), []);
 
-  const inputs = useMemo(() => toModelInputs(state.form), [state.form]);
+  const inputs = useMemo(() => toModelInputs(state.form, state.simulation), [state.form, state.simulation]);
   const completeness = useMemo(() => getCompleteness(state.form), [state.form]);
   const result = useMemo(() => computeModel(inputs), [inputs]);
 
@@ -74,6 +75,7 @@ export default function App() {
       form: { ...EMPTY_FORM },
       commercial: { stakeholders: "", tools: "", kpi: "", successFee: "", attributionWindowDays: "", notes: "" },
       scenarios: structuredClone(EMPTY_SCENARIOS),
+      simulation: structuredClone(EMPTY_SIMULATION),
     });
     flash("Proyecto vacío. El tema se conservó.");
   };
@@ -86,6 +88,8 @@ export default function App() {
       `Automatización: ${state.form.automationRate || "0"}% · Horas liberadas: ${number(result.releasedHours, 0)} h`,
       `Capacidad liberada: ${money(result.releasedCapacityValue)}/mes`,
       `TCO mensual: ${money(result.monthlyTCO)} · TCO 1er año: ${money(result.firstYearTCO)}`,
+      `Modo anual: ${result.deploymentMode === "progressive" ? "implementación progresiva" : "automatización fija"} · Promedio: ${percentValue(result.averageFirstYearAutomationRate * 100)}`,
+      `Costo IA: ${state.simulation.aiCostModel === "fixed" ? "fijo" : "fijo + variable"} · ${money(result.monthlyAIExpense)}/mes`,
       `ROI potencial 12m: ${percentValue(result.firstYearPotentialROI)}`,
       `Recuperación: ${payback(result.potentialPaybackMonths)}`,
       result.captureConfigured ? `ROI realizado 12m: ${percentValue(result.realizedFirstYearROI)}` : "",
@@ -108,7 +112,7 @@ export default function App() {
       try {
         const parsed = JSON.parse(String(reader.result)) as Partial<PersistedState>;
         const base = defaultState();
-        setState({ version: base.version, project: { ...base.project, ...parsed.project }, form: { ...base.form, ...parsed.form }, commercial: { ...base.commercial, ...parsed.commercial }, scenarios: Array.isArray(parsed.scenarios) ? parsed.scenarios : base.scenarios, guidedMode: Boolean(parsed.guidedMode) });
+        setState({ version: base.version, project: { ...base.project, ...parsed.project }, form: { ...base.form, ...parsed.form }, commercial: { ...base.commercial, ...parsed.commercial }, scenarios: Array.isArray(parsed.scenarios) ? parsed.scenarios : base.scenarios, guidedMode: Boolean(parsed.guidedMode), simulation: { ...base.simulation, ...parsed.simulation, automationSchedule: Array.isArray(parsed.simulation?.automationSchedule) && parsed.simulation.automationSchedule.length === 12 ? parsed.simulation.automationSchedule : base.simulation.automationSchedule } });
         flash("Proyecto importado.");
       } catch { flash("JSON inválido. Elegí un archivo exportado por esta calculadora."); }
     };
@@ -148,11 +152,11 @@ export default function App() {
             </div>
           </header>
 
-          <main id="main-content" tabIndex={-1} className="relative mx-auto max-w-7xl px-4 py-7 outline-none sm:px-6 lg:px-8">
+          <main id="main-content" tabIndex={-1} className="relative mx-auto max-w-7xl px-4 py-7 sm:px-6 lg:px-8">
             {view === "calculadora" && <AnimatedContent>
               <div className="mb-6 rounded-2xl border border-slate-200 bg-white/60 p-4 text-sm leading-relaxed text-slate-600 backdrop-blur-xl"><strong>3 capas, sin atajos:</strong> capacidad liberada, valor económico potencial y ahorro efectivamente capturado.</div>
               <div className="grid gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-                <InputPanel project={state.project} onProject={onProject} form={state.form} onField={onField} commercial={state.commercial} onCommercial={onCommercial} completeness={completeness} />
+                <InputPanel project={state.project} onProject={onProject} form={state.form} onField={onField} commercial={state.commercial} onCommercial={onCommercial} completeness={completeness} simulation={state.simulation} onSimulation={onSimulation} />
                 <div><div className="space-y-4 lg:sticky lg:top-4"><ResultsDashboard r={result} inputs={inputs} completeness={completeness} /></div></div>
               </div>
               <div className="mt-6"><Scenarios base={inputs} scenarios={state.scenarios} onChange={(scenarios: ScenarioConfig[]) => patch({ scenarios })} captureConfigured={result.captureConfigured} /></div>

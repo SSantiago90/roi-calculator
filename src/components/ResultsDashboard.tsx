@@ -35,6 +35,10 @@ export function ResultsDashboard({
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-violet-400/20 bg-violet-500/10 px-3.5 py-2.5 text-xs text-slate-600">
+        <span><strong className="text-slate-900">Cálculo anual:</strong> {r.deploymentMode === "progressive" ? "implementación progresiva" : "automatización fija"}</span>
+        <span className="font-mono tabular-nums">Promedio 12 meses: {percent(r.averageFirstYearAutomationRate)}</span>
+      </div>
       {/* Three-tier honesty strip */}
       <Card className="p-4">
         <div className="grid gap-2 sm:grid-cols-3">
@@ -128,6 +132,8 @@ export function ResultsDashboard({
           value={r.captureConfigured ? percentValue(r.realizedFirstYearROI) : "n/c"}
           icon={<CheckCircle2 className="h-3.5 w-3.5" />}
         />
+        <Secondary label="IA mensual" value={money(r.monthlyAIExpense)} icon={<DollarSign className="h-3.5 w-3.5" />} />
+        <Secondary label="Payback realizado" value={r.captureConfigured ? payback(r.realizedPaybackMonths) : "n/c"} icon={<Hourglass className="h-3.5 w-3.5" />} />
       </div>
 
     </div>

@@ -1,9 +1,10 @@
-import { Briefcase, Settings2 } from "lucide-react";
+import { Briefcase, CalendarRange, Settings2 } from "lucide-react";
 import type {
   CommercialContext,
   Completeness,
   NumericForm,
   ProjectInfo,
+  SimulationConfig,
 } from "@/lib/types";
 import { Card, Expandable, NumberField, PercentSlider, SectionHeader, TextField } from "./ui";
 
@@ -19,6 +20,8 @@ export function InputPanel({
   commercial,
   onCommercial,
   completeness,
+  simulation,
+  onSimulation,
 }: {
   project: ProjectInfo;
   onProject: (k: ProjKey, v: string) => void;
@@ -27,13 +30,15 @@ export function InputPanel({
   commercial: CommercialContext;
   onCommercial: (k: ComKey, v: string) => void;
   completeness: Completeness;
+  simulation: SimulationConfig;
+  onSimulation: (next: Partial<SimulationConfig>) => void;
 }) {
   return (
     <div className="space-y-5">
       {/* Section A — Project info */}
       <Card className="p-5 rise-in">
         <SectionHeader
-          icon={<IconBubble><Briefcase className="h-4 w-4" /></IconBubble>}
+          icon={<IconBubble><Briefcase className="h-4 w-4" aria-hidden="true" /></IconBubble>}
           title="Información del proyecto"
           subtitle="Da contexto al informe. No afecta los cálculos."
         />
@@ -42,20 +47,20 @@ export function InputPanel({
             label="Cliente o empresa"
             value={project.clientName}
             onChange={(v) => onProject("clientName", v)}
-            placeholder="Inmobiliaria Delta"
+            placeholder="Ej.: Inmobiliaria Delta…"
           />
           <TextField
             label="Industria"
             value={project.industry}
             onChange={(v) => onProject("industry", v)}
-            placeholder="Real Estate"
+            placeholder="Ej.: Real Estate…"
           />
           <div className="sm:col-span-2">
             <TextField
               label="Proceso a automatizar"
               value={project.process}
               onChange={(v) => onProject("process", v)}
-              placeholder="Calificación de leads por WhatsApp y gestión de citas"
+              placeholder="Ej.: calificación de leads y gestión de citas…"
             />
           </div>
           <div className="sm:col-span-2">
@@ -152,6 +157,52 @@ export function InputPanel({
         </p>
       </Card>
 
+      <Card className="p-5 rise-in">
+        <SectionHeader
+          icon={<IconBubble><CalendarRange className="h-4 w-4" aria-hidden="true" /></IconBubble>}
+          title="Implementación progresiva"
+          subtitle="Modelá el ramp-up durante los primeros 12 meses."
+        />
+        <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+          <input
+            type="checkbox"
+            checked={simulation.progressiveEnabled}
+            onChange={(event) => onSimulation({ progressiveEnabled: event.target.checked })}
+            className="mt-0.5 h-4 w-4"
+          />
+          <span><span className="block text-sm font-semibold text-slate-900">Usar porcentajes mensuales</span><span className="mt-0.5 block text-xs text-slate-500">Desactivado: los 12 meses usan el porcentaje fijo principal.</span></span>
+        </label>
+        {simulation.progressiveEnabled && (
+          <div className="mt-4">
+            {simulation.automationSchedule.some((value) => value.trim() === "") && <p className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">Faltan porcentajes mensuales. Completalos para evitar una proyección anual incompleta.</p>}
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+              {simulation.automationSchedule.map((value, index) => (
+                <label key={index} className="block rounded-xl border border-slate-200 bg-slate-50/60 p-2">
+                  <span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">Mes {index + 1}</span>
+                  <span className="relative mt-1 block">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      autoComplete="off"
+                      name={`automation-month-${index + 1}`}
+                      value={value}
+                      onChange={(event) => {
+                        const schedule = [...simulation.automationSchedule];
+                        schedule[index] = event.target.value.replace(/[^0-9.,]/g, "");
+                        onSimulation({ automationSchedule: schedule });
+                      }}
+                      className="w-full rounded-lg border border-slate-300 bg-white py-1.5 pl-2 pr-6 text-right font-mono text-sm tabular-nums focus-visible:ring-2 focus-visible:ring-blue-500/40"
+                    />
+                    <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400">%</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+            <p className="mt-3 text-xs leading-relaxed text-slate-500">Supuestos editables, no resultados garantizados. El TCO operativo se aplica en cada mes, incluso durante el piloto.</p>
+          </div>
+        )}
+      </Card>
+
       {/* Section D — Costs */}
       <Card className="p-5 rise-in">
         <SectionHeader
@@ -159,6 +210,19 @@ export function InputPanel({
           title="Costos de implementación y operación"
           subtitle="Inversión inicial y gastos recurrentes."
         />
+        <p className="mt-3 rounded-xl border border-blue-400/20 bg-blue-500/10 px-3 py-2 text-xs leading-relaxed text-slate-600"><strong className="text-slate-900">Perspectiva del cliente:</strong> cargá precios y costos que paga la empresa evaluada. No mezcles costos internos, ingresos o margen del proveedor.</p>
+        <fieldset className="mt-4 rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+          <legend className="px-1 text-xs font-semibold text-slate-700">Modelo de costo de IA</legend>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700"><input type="radio" name="ai-cost-model" checked={simulation.aiCostModel === "fixed"} onChange={() => onSimulation({ aiCostModel: "fixed" })} />Costo mensual fijo</label>
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700"><input type="radio" name="ai-cost-model" checked={simulation.aiCostModel === "variable"} onChange={() => onSimulation({ aiCostModel: "variable" })} />Fijo + variable por caso</label>
+          </div>
+          {simulation.aiCostModel === "variable" && <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <NumberField label="Costo variable por caso procesado" value={simulation.variableAICostPerCase} onChange={(value) => onSimulation({ variableAICostPerCase: value })} unit="US$" info="Se cobra por cada caso que la IA procesa, aunque termine derivado a una persona." />
+            <PercentSlider label="Casos procesados por IA" value={simulation.aiProcessedRate} onChange={(value) => onSimulation({ aiProcessedRate: value })} info="Porción del volumen que consume IA. No equivale al porcentaje resuelto automáticamente." />
+          </div>}
+          {simulation.aiCostModel === "variable" && (simulation.variableAICostPerCase.trim() === "" || simulation.aiProcessedRate.trim() === "") && <p className="mt-3 text-xs text-red-600">Completá costo por caso y porcentaje procesado. Un campo vacío no representa 0.</p>}
+        </fieldset>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <NumberField
             label="Costo inicial de implementación"
@@ -169,11 +233,11 @@ export function InputPanel({
             guided="Se paga una sola vez. Impacta el ROI anual pero no el TCO mensual operativo."
           />
           <NumberField
-            label="Costo mensual de IA"
+            label={simulation.aiCostModel === "fixed" ? "Costo mensual de IA" : "Costo fijo mensual de IA"}
             value={form.monthlyAICost}
             onChange={(v) => onField("monthlyAICost", v)}
             unit="US$"
-            info="Gasto mensual en modelos/APIs de IA (tokens, suscripciones de modelos)."
+            info={simulation.aiCostModel === "fixed" ? "Estimación mensual total de IA." : "Componente fijo mensual; el costo variable se suma por caso procesado."}
             guided="Ej.: consumo mensual de LLMs o licencias de IA."
           />
           <NumberField

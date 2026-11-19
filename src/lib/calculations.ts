@@ -1,99 +1,92 @@
-import type {
-  FinancialResult,
-  ModelInputs,
-  ScenarioConfig,
-  ScenarioResult,
-} from "./types";
+import type { FinancialResult, ModelInputs, MonthlyProjection, ScenarioConfig, ScenarioResult } from "./types";
 
-/** Coerce anything into a finite number, falling back to 0. */
-export function num(v: unknown): number {
-  const n = typeof v === "number" ? v : Number(v);
-  return Number.isFinite(n) ? n : 0;
+export function num(value: unknown): number {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
-/** Safe division returning null when the divisor is not usable. */
-function safeDiv(numerator: number, denominator: number): number | null {
-  if (!Number.isFinite(denominator) || denominator <= 0) return null;
-  const r = numerator / denominator;
-  return Number.isFinite(r) ? r : null;
+function round(value: number, decimals = 2): number {
+  const factor = Math.pow(10, decimals);
+  return Math.round((value + Number.EPSILON) * factor) / factor;
 }
 
-/** Round for stable deterministic output (avoids float noise). */
-function round(v: number, decimals = 2): number {
-  const f = Math.pow(10, decimals);
-  return Math.round((v + Number.EPSILON) * f) / f;
+function roi(net: number, cost: number): number | null {
+  return cost > 0 ? round((net / cost) * 100, 2) : null;
 }
 
-/**
- * Core deterministic financial model. Every figure in the app
- * derives from this single function so logic is never duplicated
- * inside components. All values rounded for determinism.
- */
-export function computeModel(i: ModelInputs): FinancialResult {
-  const volume = Math.max(0, num(i.monthlyVolume));
-  const minutes = Math.max(0, num(i.minutesPerCase));
-  const hourly = Math.max(0, num(i.hourlyHumanCost));
-  const rate = clampRate(num(i.automationRate));
-  const capture = clampRate(num(i.captureRate));
+function paybackFromProjection(projection: MonthlyProjection[], key: "potentialNet" | "realizedNet", initial: number): number | null {
+  if (initial <= 0) return 0;
+  let balance = -initial;
+  for (const month of projection) {
+    const start = balance;
+    balance = round(balance + month[key]);
+    if (balance >= 0 && month[key] > 0) {
+      return round(month.month - 1 + (-start / month[key]), 2);
+    }
+  }
+  const last = projection.at(-1);
+  return last && last[key] > 0 ? round(12 + (-balance / last[key]), 2) : null;
+}
 
-  // Current manual process
+/** Single source of truth for fixed and progressive first-year economics. */
+export function computeModel(input: ModelInputs): FinancialResult {
+  const volume = Math.max(0, num(input.monthlyVolume));
+  const minutes = Math.max(0, num(input.minutesPerCase));
+  const hourly = Math.max(0, num(input.hourlyHumanCost));
+  const fixedRate = clampRate(num(input.automationRate));
+  const capture = clampRate(num(input.captureRate));
   const monthlyManualHours = round((volume * minutes) / 60, 4);
   const manualLaborValue = round(monthlyManualHours * hourly);
+  const monthlySupportCost = round(Math.max(0, num(input.supportHours)) * Math.max(0, num(input.supportHourlyRate)));
+  const recurringOther = round(Math.max(0, num(input.thirdPartyApiCost)) + Math.max(0, num(input.softwareLicenseCost)) + Math.max(0, num(input.otherRecurringCosts)));
+  const totalInitialInvestment = round(Math.max(0, num(input.setupCost)) + Math.max(0, num(input.additionalOneTimeCosts)));
+  const processedRate = clampRate(num(input.aiProcessedRate));
+  const monthlyAIProcessedCases = round(volume * processedRate, 4);
+  const monthlyAIExpense = calculateAIExpense(input, monthlyAIProcessedCases);
+  const monthlyTCO = round(monthlyAIExpense + Math.max(0, num(input.monthlyInfrastructureCost)) + monthlySupportCost + recurringOther);
+  const schedule = input.progressiveEnabled
+    ? Array.from({ length: 12 }, (_, index) => clampRate(input.automationSchedule[index] ?? 0))
+    : Array.from({ length: 12 }, () => fixedRate);
 
-  // Automation split
-  const automatedCases = round(volume * rate, 4);
+  let potentialBalance = -totalInitialInvestment;
+  let realizedBalance = -totalInitialInvestment;
+  const monthlyProjection: MonthlyProjection[] = schedule.map((automationRate, index) => {
+    const potentialValue = round(manualLaborValue * automationRate);
+    const realizedValue = round(potentialValue * capture);
+    const potentialNet = round(potentialValue - monthlyTCO);
+    const realizedNet = round(realizedValue - monthlyTCO);
+    potentialBalance = round(potentialBalance + potentialNet);
+    realizedBalance = round(realizedBalance + realizedNet);
+    return {
+      month: index + 1,
+      automationRate,
+      aiProcessedCases: monthlyAIProcessedCases,
+      aiExpense: monthlyAIExpense,
+      monthlyTCO,
+      potentialValue,
+      realizedValue,
+      potentialNet,
+      realizedNet,
+      cumulativePotentialBalance: potentialBalance,
+      cumulativeRealizedBalance: realizedBalance,
+    };
+  });
+
+  const automatedCases = round(volume * fixedRate, 4);
+  const releasedHours = round(monthlyManualHours * fixedRate, 4);
   const remainingCases = round(volume - automatedCases, 4);
-  const releasedHours = round(monthlyManualHours * rate, 4);
   const remainingManualHours = round(monthlyManualHours - releasedHours, 4);
   const releasedCapacityValue = round(releasedHours * hourly);
-
-  // Costs. Recurring operating costs only (one-time handled below).
-  const monthlySupportCost = round(num(i.supportHours) * num(i.supportHourlyRate));
-  const recurringOther = round(
-    num(i.thirdPartyApiCost) +
-      num(i.softwareLicenseCost) +
-      num(i.otherRecurringCosts)
-  );
-
-  const monthlyTCO = round(
-    num(i.monthlyAICost) +
-      num(i.monthlyInfrastructureCost) +
-      monthlySupportCost +
-      recurringOther
-  );
-
-  const totalInitialInvestment = round(
-    num(i.setupCost) + num(i.additionalOneTimeCosts)
-  );
-  const firstYearTCO = round(totalInitialInvestment + monthlyTCO * 12);
-
-  // Potential (capacity-based) economics
-  const potentialMonthlyNetValue = round(releasedCapacityValue - monthlyTCO);
-  const potentialMonthlyROI = pct(potentialMonthlyNetValue, monthlyTCO);
-
-  const firstYearPotentialValue = round(releasedCapacityValue * 12);
+  const firstYearPotentialValue = round(monthlyProjection.reduce((sum, month) => sum + month.potentialValue, 0));
+  const realizedFirstYearValue = round(monthlyProjection.reduce((sum, month) => sum + month.realizedValue, 0));
+  const firstYearTCO = round(totalInitialInvestment + monthlyProjection.reduce((sum, month) => sum + month.monthlyTCO, 0));
   const firstYearPotentialNetValue = round(firstYearPotentialValue - firstYearTCO);
-  const firstYearPotentialROI = pct(firstYearPotentialNetValue, firstYearTCO);
-
-  const monthlyPotentialSurplus = potentialMonthlyNetValue;
-  const potentialPaybackMonths =
-    monthlyPotentialSurplus > 0
-      ? round(totalInitialInvestment / monthlyPotentialSurplus, 2)
-      : null;
-
-  // Break-even automation rate (recurring costs only)
-  const breakEvenRate =
-    manualLaborValue > 0 ? round(monthlyTCO / manualLaborValue, 6) : null;
-  const breakEvenReachable = breakEvenRate !== null && breakEvenRate <= 1;
-
-  const costPerAutomatedCase = safeDiv(monthlyTCO, automatedCases);
-
-  // Realized (capture-based) economics
+  const potentialMonthlyNetValue = round(releasedCapacityValue - monthlyTCO);
   const realizedMonthlyBenefit = round(releasedCapacityValue * capture);
   const realizedMonthlyNetBenefit = round(realizedMonthlyBenefit - monthlyTCO);
-  const realizedFirstYearROI = firstYearTCO > 0
-    ? round(((realizedMonthlyBenefit * 12 - firstYearTCO) / firstYearTCO) * 100, 2)
-    : null;
+  const breakEvenRate = manualLaborValue > 0 ? round(monthlyTCO / manualLaborValue, 6) : null;
+  const potentialPaybackMonths = paybackFromProjection(monthlyProjection, "potentialNet", totalInitialInvestment);
+  const realizedPaybackMonths = capture > 0 ? paybackFromProjection(monthlyProjection, "realizedNet", totalInitialInvestment) : null;
 
   return {
     monthlyManualHours: round(monthlyManualHours, 2),
@@ -104,31 +97,37 @@ export function computeModel(i: ModelInputs): FinancialResult {
     remainingManualHours: round(remainingManualHours, 2),
     releasedCapacityValue,
     monthlySupportCost,
+    monthlyAIProcessedCases,
+    monthlyAIExpense,
     otherRecurringCosts: recurringOther,
     monthlyTCO,
     totalInitialInvestment,
     firstYearTCO,
     potentialMonthlyNetValue,
-    potentialMonthlyROI,
+    potentialMonthlyROI: roi(potentialMonthlyNetValue, monthlyTCO),
     firstYearPotentialValue,
     firstYearPotentialNetValue,
-    firstYearPotentialROI,
-    monthlyPotentialSurplus,
+    firstYearPotentialROI: roi(firstYearPotentialNetValue, firstYearTCO),
+    monthlyPotentialSurplus: potentialMonthlyNetValue,
     potentialPaybackMonths,
+    realizedPaybackMonths,
     breakEvenRate,
-    breakEvenReachable,
-    costPerAutomatedCase:
-      costPerAutomatedCase !== null ? round(costPerAutomatedCase, 2) : null,
+    breakEvenReachable: breakEvenRate !== null && breakEvenRate <= 1,
+    costPerAutomatedCase: automatedCases > 0 ? round(monthlyTCO / automatedCases, 2) : null,
     realizedMonthlyBenefit,
     realizedMonthlyNetBenefit,
-    realizedFirstYearROI,
+    realizedFirstYearROI: roi(realizedFirstYearValue - firstYearTCO, firstYearTCO),
     captureConfigured: capture > 0,
+    deploymentMode: input.progressiveEnabled ? "progressive" : "fixed",
+    averageFirstYearAutomationRate: round(schedule.reduce((sum, rate) => sum + rate, 0) / 12, 6),
+    monthlyProjection,
   };
 }
 
-function pct(net: number, base: number): number | null {
-  if (!Number.isFinite(base) || base <= 0) return null;
-  return round((net / base) * 100, 2);
+function calculateAIExpense(input: ModelInputs, processedCases: number): number {
+  const fixed = Math.max(0, num(input.monthlyAICost));
+  if (input.aiCostModel === "fixed") return round(fixed);
+  return round(fixed + processedCases * Math.max(0, num(input.variableAICostPerCase)));
 }
 
 export function clampRate(fraction: number): number {
@@ -136,40 +135,27 @@ export function clampRate(fraction: number): number {
   return Math.min(1, Math.max(0, fraction));
 }
 
-/** Parse a percentage string ("80", "80%") into a fraction 0..1. */
 export function percentToFraction(raw: string): number {
-  const cleaned = raw.replace(/[%\s]/g, "").replace(",", ".");
-  const n = Number(cleaned);
-  if (!Number.isFinite(n)) return 0;
-  return clampRate(n / 100);
+  const parsed = Number(raw.replace(/[%\s]/g, "").replace(",", "."));
+  return Number.isFinite(parsed) ? clampRate(parsed / 100) : 0;
 }
 
-/**
- * Evaluate a scenario by overriding base assumptions. The rest of
- * the economic context (support, infra, setup...) is inherited so
- * results react instantly to base changes.
- */
-export function evaluateScenario(
-  base: ModelInputs,
-  scenario: ScenarioConfig
-): ScenarioResult {
-  const a = scenario.assumptions;
-  const effectiveVolume = round(base.monthlyVolume * num(a.volumeFactor), 4);
-  const effectiveAutomationRate = clampRate(num(a.automationRate));
-  const effectiveAICost = round(base.monthlyAICost * num(a.aiCostFactor));
-
+export function evaluateScenario(base: ModelInputs, scenario: ScenarioConfig): ScenarioResult {
+  const assumptions = scenario.assumptions;
+  const effectiveVolume = round(base.monthlyVolume * num(assumptions.volumeFactor), 4);
+  const effectiveAutomationRate = clampRate(num(assumptions.automationRate));
+  const effectiveAICost = round(base.monthlyAICost * num(assumptions.aiCostFactor));
   const result = computeModel({
     ...base,
     monthlyVolume: effectiveVolume,
     automationRate: effectiveAutomationRate,
     monthlyAICost: effectiveAICost,
+    variableAICostPerCase: base.variableAICostPerCase * num(assumptions.aiCostFactor),
+    progressiveEnabled: false,
   });
+  return { ...result, label: scenario.label, effectiveVolume: round(effectiveVolume, 2), effectiveAutomationRate, effectiveAICost: result.monthlyAIExpense };
+}
 
-  return {
-    ...result,
-    label: scenario.label,
-    effectiveVolume: round(effectiveVolume, 2),
-    effectiveAutomationRate,
-    effectiveAICost,
-  };
+export function evaluateAutomationSensitivity(base: ModelInputs, rates = [0.2, 0.4, 0.6, 0.8, 1]): { rate: number; roi: number | null }[] {
+  return rates.map((rate) => ({ rate, roi: computeModel({ ...base, automationRate: rate, progressiveEnabled: false }).firstYearPotentialROI }));
 }

@@ -1,4 +1,4 @@
-import { DEFAULT_FORM, DEFAULT_PROJECT, DEFAULT_COMMERCIAL, DEFAULT_SCENARIOS } from "./presets";
+import { DEFAULT_FORM, DEFAULT_PROJECT, DEFAULT_COMMERCIAL, DEFAULT_SCENARIOS, DEFAULT_SIMULATION } from "./presets";
 import type { PersistedState } from "./types";
 
 const KEY = "roi-tco-calculator:v1";
@@ -12,6 +12,7 @@ export function defaultState(): PersistedState {
     commercial: { ...DEFAULT_COMMERCIAL },
     scenarios: structuredClone(DEFAULT_SCENARIOS),
     guidedMode: false,
+    simulation: structuredClone(DEFAULT_SIMULATION),
   };
 }
 
@@ -32,6 +33,14 @@ export function loadState(): PersistedState {
           ? (parsed.scenarios as typeof base.scenarios)
           : base.scenarios,
       guidedMode: Boolean(parsed.guidedMode),
+      simulation: {
+        ...base.simulation,
+        ...parsed.simulation,
+        automationSchedule:
+          Array.isArray(parsed.simulation?.automationSchedule) && parsed.simulation.automationSchedule.length === 12
+            ? parsed.simulation.automationSchedule
+            : base.simulation.automationSchedule,
+      },
     };
   } catch {
     return defaultState();

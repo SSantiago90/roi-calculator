@@ -1,18 +1,23 @@
 import {
   Bar,
   BarChart,
+  Area,
+  AreaChart,
   CartesianGrid,
   Cell,
   Legend,
+  Line,
+  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
+  ReferenceLine,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
 import type { FinancialResult, ModelInputs, ScenarioConfig } from "@/lib/types";
-import { evaluateScenario } from "@/lib/calculations";
+import { evaluateAutomationSensitivity, evaluateScenario } from "@/lib/calculations";
 import { money, number } from "@/lib/format";
 
 const BLUE = "#2563eb";
@@ -63,7 +68,7 @@ export function CostBreakdownChart({
   inputs: ModelInputs;
 }) {
   const slices = [
-    { name: "IA", value: inputs.monthlyAICost, color: BLUE },
+    { name: "IA", value: r.monthlyAIExpense, color: BLUE },
     { name: "Infraestructura", value: inputs.monthlyInfrastructureCost, color: INDIGO },
     { name: "Soporte", value: r.monthlySupportCost, color: AMBER },
     { name: "Otros", value: r.otherRecurringCosts, color: SLATE },
@@ -157,6 +162,63 @@ export function ScenarioComparisonChart({ base, scenarios }: { base: ModelInputs
         <Legend wrapperStyle={{ fontSize: 12 }} />
         <Bar yAxisId="roi" dataKey="ROI" fill={BLUE} radius={[5, 5, 0, 0]} />
         <Bar yAxisId="payback" dataKey="Payback" fill={EMERALD} radius={[5, 5, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function InvestmentRecoveryChart({ r }: { r: FinancialResult }) {
+  const data = [
+    { month: 0, Potencial: -r.totalInitialInvestment, Realizado: -r.totalInitialInvestment },
+    ...r.monthlyProjection.map((item) => ({ month: item.month, Potencial: item.cumulativePotentialBalance, Realizado: item.cumulativeRealizedBalance })),
+  ];
+  const potentialWithinYear = r.potentialPaybackMonths != null && r.potentialPaybackMonths <= 12;
+  const realizedWithinYear = r.realizedPaybackMonths != null && r.realizedPaybackMonths <= 12;
+  return (
+    <ResponsiveContainer width="100%" height={280}>
+      <LineChart data={data} margin={{ top: 12, right: 16, left: 6, bottom: 0 }}>
+        <CartesianGrid stroke="var(--chart-grid)" />
+        <XAxis dataKey="month" tick={axisStyle} tickFormatter={(value) => `M${value}`} />
+        <YAxis tick={axisStyle} tickFormatter={(value) => `$${number(Number(value) / 1000, 0)}k`} width={48} />
+        <Tooltip contentStyle={tooltipStyle} labelFormatter={(value) => value === 0 ? "Inversión inicial" : `Mes ${value}`} formatter={usd} />
+        <Legend wrapperStyle={{ fontSize: 12 }} />
+        <ReferenceLine y={0} stroke="var(--chart-label)" strokeDasharray="4 4" />
+        {potentialWithinYear && <ReferenceLine x={Math.ceil(r.potentialPaybackMonths!)} stroke={BLUE} strokeDasharray="3 3" label={{ value: "Payback potencial", fill: BLUE, fontSize: 10 }} />}
+        {realizedWithinYear && <ReferenceLine x={Math.ceil(r.realizedPaybackMonths!)} stroke={EMERALD} strokeDasharray="3 3" label={{ value: "Payback realizado", fill: EMERALD, fontSize: 10, position: "insideBottomRight" }} />}
+        <Line type="monotone" dataKey="Potencial" stroke={BLUE} strokeWidth={2.5} dot={{ r: 2 }} />
+        <Line type="monotone" dataKey="Realizado" stroke={EMERALD} strokeWidth={2.5} dot={{ r: 2 }} />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function AutomationEvolutionChart({ r }: { r: FinancialResult }) {
+  const data = r.monthlyProjection.map((item) => ({ month: `M${item.month}`, automation: item.automationRate * 100 }));
+  return (
+    <ResponsiveContainer width="100%" height={250}>
+      <AreaChart data={data} margin={{ top: 10, right: 12, left: 0, bottom: 0 }}>
+        <defs><linearGradient id="automation-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={INDIGO} stopOpacity={0.42} /><stop offset="100%" stopColor={INDIGO} stopOpacity={0.03} /></linearGradient></defs>
+        <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
+        <XAxis dataKey="month" tick={axisStyle} />
+        <YAxis domain={[0, 100]} tick={axisStyle} tickFormatter={(value) => `${value}%`} width={42} />
+        <Tooltip contentStyle={tooltipStyle} formatter={(value) => `${number(Number(value), 0)} % estimado`} />
+        <Area type="monotone" dataKey="automation" name="Automatización" stroke={INDIGO} strokeWidth={2.5} fill="url(#automation-fill)" />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function ROISensitivityChart({ base }: { base: ModelInputs }) {
+  const data = evaluateAutomationSensitivity(base).map((item) => ({ automation: `${number(item.rate * 100, 0)}%`, ROI: item.roi ?? 0 }));
+  return (
+    <ResponsiveContainer width="100%" height={250}>
+      <BarChart data={data} margin={{ top: 10, right: 12, left: 0, bottom: 0 }}>
+        <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
+        <XAxis dataKey="automation" tick={axisStyle} />
+        <YAxis tick={axisStyle} tickFormatter={(value) => `${value}%`} width={46} />
+        <Tooltip contentStyle={tooltipStyle} formatter={(value) => `${number(Number(value), 1)} %`} labelFormatter={(value) => `${value} de automatización`} />
+        <ReferenceLine y={0} stroke="var(--chart-label)" />
+        <Bar dataKey="ROI" radius={[5, 5, 0, 0]}>{data.map((item) => <Cell key={item.automation} fill={item.ROI >= 0 ? EMERALD : RED} />)}</Bar>
       </BarChart>
     </ResponsiveContainer>
   );
